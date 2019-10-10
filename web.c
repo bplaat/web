@@ -1,4 +1,4 @@
-// gcc -Wall -Wextra -Wpedantic -Werror -Wshadow -std=c11 web.c -lpthread -o web && ./web public 8080
+// gcc -Wall -Wextra -Wpedantic -Werror -Wshadow -std=c11 web.c -lpthread -o web && ./web 8080 public
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +37,10 @@ void *connection_handler(void *args) {
         if (strcmp(http_type, "GET") == 0 && strcmp(protocol, "HTTP/1.1") == 0) {
             strcpy(path_buffer, root);
             strcpy(&path_buffer[strlen(path_buffer)], file_name);
-            if (file_name[strlen(file_name) - 1] == '/') {
+
+            struct stat stats;
+            stat(path_buffer, &stats);
+            if (S_ISDIR(stats.st_mode)) {
                 strcpy(&path_buffer[strlen(path_buffer)], "index.html");
             }
 
@@ -83,9 +86,12 @@ void *connection_handler(void *args) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc >= 3) {
-        root = argv[1];
-        char *port = argv[2];
+    if (argc >= 2) {
+        if (argc >= 3) {
+            root = argv[2];
+        } else {
+            root = ".";
+        }
 
         int server_socket = socket(AF_INET, SOCK_STREAM, 0);
         if (server_socket == -1) {
@@ -96,7 +102,7 @@ int main(int argc, char *argv[]) {
         struct sockaddr_in server;
         server.sin_family = AF_INET;
         server.sin_addr.s_addr = INADDR_ANY;
-        server.sin_port = htons(atoi(port));
+        server.sin_port = htons(atoi(argv[1]));
 
         if (bind(server_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
             puts("Bind failed");
