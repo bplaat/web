@@ -56,14 +56,14 @@ void *connection_handler(void *args) {
         char *file_name = strtok(NULL, " ");
         char *protocol = strtok(NULL, "\r\n");
 
-        if (strcmp(http_type, "GET") == 0 && strcmp(protocol, "HTTP/1.1") == 0) {
+        if (strcmp(http_type, "GET") == 0 && (strcmp(protocol, "HTTP/1.0") == 0 || strcmp(protocol, "HTTP/1.1") == 0)) {
             strcpy(path_buffer, root);
-            strcpy(&path_buffer[strlen(path_buffer)], file_name);
+            strcat(path_buffer, file_name);
 
             struct stat stats;
             stat(path_buffer, &stats);
             if (S_ISDIR(stats.st_mode)) {
-                strcpy(&path_buffer[strlen(path_buffer)], "index.html");
+                strcat(path_buffer, "index.html");
             }
 
             puts(path_buffer);
@@ -87,10 +87,10 @@ void *connection_handler(void *args) {
                 fseek(file, 0, SEEK_END);
                 size_t file_length = ftell(file);
                 rewind(file);
-                sprintf(buffer, "HTTP/1.1 200 OK\r\n"
+                sprintf(buffer, "%s 200 OK\r\n"
                     "Connection: close\r\n"
                     "Content-Length: %ld\t\n"
-                    "Content-Type: %s\r\n\r\n", file_length, mime);
+                    "Content-Type: %s\r\n\r\n", protocol, file_length, mime);
                 write(client_socket, buffer, strlen(buffer));
 
                 size_t file_bytes_read;
@@ -101,15 +101,15 @@ void *connection_handler(void *args) {
             }
             else {
                 strcpy(path_buffer, root);
-                strcpy(&path_buffer[strlen(path_buffer)], "/404.html");
+                strcat(path_buffer, "/404.html");
                 if ((file = fopen(path_buffer, "r")) != NULL) {
                     fseek(file, 0, SEEK_END);
                     size_t file_length = ftell(file);
                     rewind(file);
-                    sprintf(buffer, "HTTP/1.1 404 Not Found\r\n"
+                    sprintf(buffer, "%s 404 Not Found\r\n"
                         "Connection: close\r\n"
                         "Content-Length: %ld\r\n"
-                        "Content-Type: text/html\r\n\r\n", file_length);
+                        "Content-Type: text/html\r\n\r\n", protocol, file_length);
                     write(client_socket, buffer, strlen(buffer));
 
                     size_t file_bytes_read;
@@ -120,10 +120,10 @@ void *connection_handler(void *args) {
                 }
                 else {
                     char *not_found_reponse_body = "404 Not Found!\n";
-                    sprintf(buffer, "HTTP/1.1 404 Not Found\r\n"
+                    sprintf(buffer, "%s 404 Not Found\r\n"
                         "Connection: close\r\n"
                         "Content-Length: %ld\r\n"
-                        "Content-Type: text/plain\r\n\r\n", strlen(not_found_reponse_body));
+                        "Content-Type: text/plain\r\n\r\n", protocol, strlen(not_found_reponse_body));
                     write(client_socket, buffer, strlen(buffer));
                     write(client_socket, not_found_reponse_body, strlen(not_found_reponse_body));
                 }
