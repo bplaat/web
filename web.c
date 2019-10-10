@@ -5,14 +5,25 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <unistd.h>
 #include <pthread.h>
 
 #define BUFFER_SIZE 1024
 
 char *root;
+
+char *mime_types[] = {
+    "txt",  "text/plain",
+    "html", "text/html",
+    "css",  "text/css",
+    "js",   "application/javascript",
+    "ico",  "image/vnd.microsoft.icon",
+    "jpg",  "image/jpg",
+    "png",  "image/png",
+    "gif",  "image/gif",
+    0
+};
 
 struct thread_args {
     int client_socket;
@@ -46,31 +57,63 @@ void *connection_handler(void *args) {
 
             puts(path_buffer);
 
-            int file;
-            if ((file = open(path_buffer, O_RDONLY)) != -1) {
-                char *found_response = "HTTP/1.1 200 OK\r\n\r\n";
-                write(client_socket, found_response, strlen(found_response));
+            char *ext;
+            char *dot = strrchr(path_buffer, '.');
+            if (!dot || dot == path_buffer) ext = "";
+            ext = dot + 1;
+
+            char *mime;
+            for (int i = 0; mime_types[i] != 0; i += 2) {
+                if (strcmp(ext, mime_types[i]) == 0) {
+                    mime = mime_types[i + 1];
+                    break;
+                }
+            }
+
+            FILE *file;
+            if ((file = fopen(path_buffer, "r")) != NULL) {
+                fseek(file, 0, SEEK_END);
+                size_t file_length = ftell(file);
+                rewind(file);
+                sprintf(buffer, "HTTP/1.1 200 OK\r\n"
+                    "Connection: close\r\n"
+                    "Content-Length: %ld\t\n"
+                    "Content-Type: %s\r\n\r\n", file_length, mime);
+                write(client_socket, buffer, strlen(buffer));
 
                 size_t file_bytes_read;
-                while ((file_bytes_read = read(file, buffer, BUFFER_SIZE)) > 0) {
+                while ((file_bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
                     write(client_socket, buffer, file_bytes_read);
                 }
-                close(file);
-            } else {
+                fclose(file);
+            }
+            else {
                 strcpy(path_buffer, root);
                 strcpy(&path_buffer[strlen(path_buffer)], "/404.html");
-                if ((file = open(path_buffer, O_RDONLY)) != -1) {
-                    char *not_found_response = "HTTP/1.1 404 Not Found\r\n\r\n";
-                    write(client_socket, not_found_response, strlen(not_found_response));
+                if ((file = fopen(path_buffer, "r")) != NULL) {
+                    fseek(file, 0, SEEK_END);
+                    size_t file_length = ftell(file);
+                    rewind(file);
+                    sprintf(buffer, "HTTP/1.1 404 Not Found\r\n"
+                        "Connection: close\r\n"
+                        "Content-Length: %ld\r\n"
+                        "Content-Type: %s\r\n\r\n", file_length, mime);
+                    write(client_socket, buffer, strlen(buffer));
 
                     size_t file_bytes_read;
-                    while ((file_bytes_read = read(file, buffer, BUFFER_SIZE)) > 0) {
+                    while ((file_bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
                         write(client_socket, buffer, file_bytes_read);
                     }
-                    close(file);
-                } else {
-                    char *not_found_response = "HTTP/1.1 404 Not Found\r\n\r\n404 Not Found\n";
-                    write(client_socket, not_found_response, strlen(not_found_response));
+                    fclose(file);
+                }
+                else {
+                    char *not_found_reponse_body = "404 Not Found!\n";
+                    sprintf(buffer, "HTTP/1.1 404 Not Found\r\n"
+                        "Connection: close\r\n"
+                        "Content-Length: %ld\r\n"
+                        "Content-Type: text/plain\r\n\r\n", strlen(not_found_reponse_body));
+                    write(client_socket, buffer, strlen(buffer));
+                    write(client_socket, not_found_reponse_body, strlen(not_found_reponse_body));
                 }
             }
         }
