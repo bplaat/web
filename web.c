@@ -1,8 +1,9 @@
-// gcc -Wall -Wextra -Wpedantic -Werror -Wshadow -std=c11 web.c -lpthread -o web && ./web 8080 public
+// gcc -Wall -Wextra -Wpedantic -Werror -Wshadow -std=c11 web.c -lpthread -o web && ./web public
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
@@ -10,8 +11,6 @@
 #include <pthread.h>
 
 #define BUFFER_SIZE 1024
-
-char *root;
 
 char *mime_types[] = {
     "txt",  "text/plain",
@@ -39,6 +38,8 @@ char *mime_types[] = {
 struct thread_args {
     int client_socket;
 };
+
+char *root;
 
 void *connection_handler(void *args) {
     struct thread_args *thread_args = args;
@@ -140,53 +141,62 @@ void *connection_handler(void *args) {
     return EXIT_SUCCESS;
 }
 
+int server_socket;
+
+void close_server_socket(int signum) {
+    (void)signum;
+    close(server_socket);
+    exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char *argv[]) {
-    if (argc >= 2) {
-        if (argc >= 3) {
-            root = argv[2];
-        } else {
-            root = ".";
-        }
+    root = argc >= 2 ? argv[1] : ".";
+    int port = argc >= 3 ? atoi(argv[2]) : 8080;
 
-        int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (server_socket == -1) {
-            puts("Could not create socket");
-            return EXIT_FAILURE;
-        }
-
-        struct sockaddr_in server;
-        server.sin_family = AF_INET;
-        server.sin_addr.s_addr = INADDR_ANY;
-        server.sin_port = htons(atoi(argv[1]));
-
-        if (bind(server_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
-            puts("Bind failed");
-            return EXIT_FAILURE;
-        }
-        puts("Bind done");
-
-        listen(server_socket, 1000);
-
-        int client_socket;
-        struct sockaddr_in client_address;
-        socklen_t client_address_size = sizeof(struct sockaddr_in);
-
-        while ((client_socket = accept(server_socket, (struct sockaddr *) &client_address, &client_address_size)) >= 0) {
-            pthread_t client_thread;
-            struct thread_args *thread_args = malloc(sizeof(thread_args));
-            thread_args->client_socket = client_socket;
-            if (pthread_create(&client_thread, NULL, connection_handler, thread_args) > 0) {
-                puts("Could not create thread");
-                return EXIT_FAILURE;
-            }
-        }
-
-        if (client_socket < 0) {
-            puts("Accept failed");
-            return EXIT_FAILURE;
-        }
-
-        close(server_socket);
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket == -1) {
+        puts("Could not create socket");
+        return EXIT_FAILURE;
     }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(port);
+
+    if (bind(server_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        puts("Bind failed");
+        close(server_socket);
+        return EXIT_FAILURE;
+    }
+
+    listen(server_socket, 1000);
+
+    signal(SIGINT, close_server_socket);
+
+    printf("Serving '%s' at http://127.0.0.1:%d/\n", root, port);
+
+    int client_socket;
+    struct sockaddr_in client_address;
+    socklen_t client_address_size = sizeof(struct sockaddr_in);
+
+    while ((client_socket = accept(server_socket, (struct sockaddr *) &client_address, &client_address_size)) >= 0) {
+        pthread_t client_thread;
+        struct thread_args *thread_args = malloc(sizeof(thread_args));
+        thread_args->client_socket = client_socket;
+        if (pthread_create(&client_thread, NULL, connection_handler, thread_args) > 0) {
+            puts("Could not create thread");
+            close(server_socket);
+            return EXIT_FAILURE;
+        }
+    }
+
+    if (client_socket < 0) {
+        puts("Accept failed");
+        close(server_socket);
+        return EXIT_FAILURE;
+    }
+
+    close(server_socket);
     return EXIT_SUCCESS;
 }
