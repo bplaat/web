@@ -15,6 +15,7 @@
 char *mime_types[] = {
     "txt",  "text/plain",
 
+    "htm", "text/html",
     "html", "text/html",
     "css",  "text/css",
     "js",   "application/javascript",
@@ -46,7 +47,7 @@ void *connection_handler(void *args) {
     int client_socket = thread_args->client_socket;
 
     char *buffer = malloc(BUFFER_SIZE);
-    char *path_buffer = malloc(500);
+    char *path_buffer = malloc(256);
 
     size_t request_bytes_read = read(client_socket, buffer, BUFFER_SIZE);
     if (request_bytes_read == 0) {
@@ -56,6 +57,7 @@ void *connection_handler(void *args) {
         char *http_type = strtok(buffer, " ");
         char *file_name = strtok(NULL, " ");
         char *protocol = strtok(NULL, "\r\n");
+        file_name = strtok(strtok(file_name, "#"), "?");
 
         if (strcmp(http_type, "GET") == 0 && (strcmp(protocol, "HTTP/1.0") == 0 || strcmp(protocol, "HTTP/1.1") == 0)) {
             strcpy(path_buffer, root);
@@ -69,15 +71,15 @@ void *connection_handler(void *args) {
 
             puts(path_buffer);
 
-            char *ext = "";
+            char *extension = "";
             char *dot = strrchr(path_buffer, '.');
             if (dot) {
-                ext = dot + 1;
+                extension = dot + 1;
             }
 
             char *mime = "application/octet-stream";
             for (int i = 0; mime_types[i] != 0; i += 2) {
-                if (strcmp(ext, mime_types[i]) == 0) {
+                if (strcmp(extension, mime_types[i]) == 0) {
                     mime = mime_types[i + 1];
                     break;
                 }
@@ -170,9 +172,9 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    listen(server_socket, 1000);
-
     signal(SIGINT, close_server_socket);
+
+    listen(server_socket, 1000);
 
     printf("Serving '%s' at http://127.0.0.1:%d/\n", root, port);
 
