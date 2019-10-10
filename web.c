@@ -15,13 +15,24 @@ char *root;
 
 char *mime_types[] = {
     "txt",  "text/plain",
+
     "html", "text/html",
     "css",  "text/css",
     "js",   "application/javascript",
+
     "ico",  "image/vnd.microsoft.icon",
-    "jpg",  "image/jpg",
+    "bmp",  "image/bmp",
+    "jpg",  "image/jpeg",
+    "jpeg", "image/jpeg",
     "png",  "image/png",
     "gif",  "image/gif",
+    "svg",  "image/svg+xml",
+
+    "pdf",  "application/pdf",
+    "zip",  "application/zip",
+
+    "json", "application/json",
+    "xml",  "application/xml",
     0
 };
 
@@ -57,12 +68,13 @@ void *connection_handler(void *args) {
 
             puts(path_buffer);
 
-            char *ext;
+            char *ext = "";
             char *dot = strrchr(path_buffer, '.');
-            if (!dot || dot == path_buffer) ext = "";
-            ext = dot + 1;
+            if (dot) {
+                ext = dot + 1;
+            }
 
-            char *mime;
+            char *mime = "application/octet-stream";
             for (int i = 0; mime_types[i] != 0; i += 2) {
                 if (strcmp(ext, mime_types[i]) == 0) {
                     mime = mime_types[i + 1];
@@ -97,7 +109,7 @@ void *connection_handler(void *args) {
                     sprintf(buffer, "HTTP/1.1 404 Not Found\r\n"
                         "Connection: close\r\n"
                         "Content-Length: %ld\r\n"
-                        "Content-Type: %s\r\n\r\n", file_length, mime);
+                        "Content-Type: text/html\r\n\r\n", file_length);
                     write(client_socket, buffer, strlen(buffer));
 
                     size_t file_bytes_read;
