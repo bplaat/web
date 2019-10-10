@@ -1,4 +1,10 @@
+; https://filippo.io/linux-syscall-table/
+
 _read equ 0
+
+stdin equ 0
+stdout equ 1
+stderr equ 2
 
 %macro sys_read 3
     mov rdx, %3
@@ -9,10 +15,6 @@ _read equ 0
 %endmacro
 
 _write equ 1
-
-stdin equ 0
-stdout equ 1
-stderr equ 2
 
 %macro sys_write 3
     mov rdx, %3
@@ -65,6 +67,37 @@ _connect equ 42
     mov rsi, %2
     mov rdi, %1
     mov rax, _connect
+    syscall
+%endmacro
+
+_accept equ 43
+
+%macro sys_accept 3
+    mov rdx, %3
+    mov rsi, %2
+    mov rdi, %1
+    mov rax, _accept
+    syscall
+%endmacro
+
+_bind equ 49
+
+INADDR_ANY equ 0
+
+%macro sys_bind 3
+    mov rdx, %3
+    mov rsi, %2
+    mov rdi, %1
+    mov rax, _bind
+    syscall
+%endmacro
+
+_listen equ 50
+
+%macro sys_listen 2
+    mov rsi, %2
+    mov rdi, %1
+    mov rax, _listen
     syscall
 %endmacro
 
