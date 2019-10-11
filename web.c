@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     root = argc >= 2 ? argv[1] : ".";
     int port = argc >= 3 ? atoi(argv[2]) : 8080;
 
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (server_socket == -1) {
         puts("Could not create socket");
         return EXIT_FAILURE;

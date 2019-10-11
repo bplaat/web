@@ -50,7 +50,7 @@ _socket equ 41
 
 AF_INET equ 2
 SOCK_STREAM equ 1
-IPPROTO_IP equ 0
+IPPROTO_TCP equ 6
 
 %macro sys_socket 3
     mov rdx, %3

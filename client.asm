@@ -1,4 +1,4 @@
-; nasm -f elf64 client.asm -o client.o && ld client.o -o client && rm client.o && ./client
+; nasm -f elf64 client.asm -o client.o && ld -s client.o -o client && rm client.o && ./client
 ; objdump -S -M intel client
 
 %include 'syscalls.inc'
@@ -21,21 +21,21 @@ section .text
 global _start
 
 _start:
-    sys_socket AF_INET, SOCK_STREAM, IPPROTO_IP
+    sys_socket AF_INET, SOCK_STREAM, IPPROTO_TCP
     mov [client_socket], rax
 
     sys_connect [client_socket], client_address, client_address_length
 
     sys_write [client_socket], request, request_length
 
-read_write_loop:
+read_buffer_write_stout_loop:
     sys_read [client_socket], buffer, buffer_length
     cmp rax, 0
-    je .end
+    je .done
 
     sys_write stdout, buffer, rax
-    jmp read_write_loop
-.end:
+    jmp read_buffer_write_stout_loop
+.done:
 
     sys_close [client_socket]
 

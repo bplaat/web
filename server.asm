@@ -15,22 +15,27 @@ section .data
     client_address times 16 db 0
     client_address_length dq $ - client_address
 
-    response db 'HTTP/1.0 200 OK', 13, 10, 13, 10, 'Hello World!', 10
-    response_length equ $ - response
+    response_header db 'HTTP/1.0 200 OK', 13, 10, 13, 10
+    response_header_length equ $ - response_header
 
-    buffer_length equ 1024
+    filename db 'file.html', 0
+    file dq 0
+
+    buffer_length equ 64
     buffer times buffer_length db 0
 
 section .text
 global _start
 
 _start:
-    sys_socket AF_INET, SOCK_STREAM, IPPROTO_IP
+    sys_socket AF_INET, SOCK_STREAM, IPPROTO_TCP
+    cmp rax, 0
+    jl exit_error
     mov [server_socket], rax
 
     sys_bind [server_socket], server_address, server_address_length
     cmp rax, 0
-    jl error
+    jl exit_error
 
     sys_listen [server_socket], 5
 
@@ -40,9 +45,24 @@ client_loop:
     cmp rax, 0
     jl client_loop_end
 
+read_request:
     sys_read [client_socket], buffer, buffer_length
+    cmp rax, buffer_length
+    je read_request
 
-    sys_write [client_socket], response, response_length
+    sys_write [client_socket], response_header, response_header_length
+
+    sys_open filename, O_RDONLY, 0
+    mov [file], rax
+read_file_write_client_socket_loop:
+    sys_read [file], buffer, buffer_length
+    cmp rax, 0
+    je .done
+
+    sys_write [client_socket], buffer, rax
+    jmp read_file_write_client_socket_loop
+.done:
+    sys_close [file]
 
     sys_close [client_socket]
     jmp client_loop
@@ -51,5 +71,5 @@ client_loop_end:
 
     sys_exit EXIT_SUCCESS
 
-error:
+exit_error:
     sys_exit EXIT_FAILURE
