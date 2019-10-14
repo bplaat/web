@@ -1,4 +1,4 @@
-; nasm -f elf64 server.asm -o server.o && ld -s server.o -o server && rm server.o && strace ./server
+; nasm -f elf64 server.asm -o server.o && ld -s server.o -o server && rm server.o && strace -f ./server
 ; objdump -S -M intel server
 
 %include 'syscalls.inc'
@@ -24,10 +24,18 @@ section .data
     buffer_length equ 64
     buffer times buffer_length db 0
 
+    sigaction:
+        sa_handler  dq SIG_IGN
+        sa_flags    dq 0x04000000
+        sa_restorer dq 0
+        sa_mask     dq 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
 section .text
 global _start
 
 _start:
+    sys_rt_sigaction SIGCHLD, sigaction, 0, 8
+
     sys_socket AF_INET, SOCK_STREAM, IPPROTO_TCP
     cmp rax, 0
     jl exit_error
@@ -37,14 +45,30 @@ _start:
     cmp rax, 0
     jl exit_error
 
-    sys_listen [server_socket], 5
+    sys_listen [server_socket], 1000
 
 client_loop:
     sys_accept [server_socket], client_address, client_address_length
     mov [client_socket], rax
     cmp rax, 0
-    jl client_loop_end
+    jl stop_server
 
+    sys_fork
+    cmp rax, 0
+    jl stop_server
+
+    cmp rax, 0
+    je handle_client
+
+    sys_close [client_socket]
+    jmp client_loop
+
+stop_server:
+    sys_close [server_socket]
+exit_error:
+    sys_exit EXIT_FAILURE
+
+handle_client:
 read_request:
     sys_read [client_socket], buffer, buffer_length
     cmp rax, buffer_length
@@ -65,11 +89,4 @@ read_file_write_client_socket_loop:
     sys_close [file]
 
     sys_close [client_socket]
-    jmp client_loop
-client_loop_end:
-    sys_close [server_socket]
-
     sys_exit EXIT_SUCCESS
-
-exit_error:
-    sys_exit EXIT_FAILURE

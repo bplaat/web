@@ -1,7 +1,5 @@
 ; https://filippo.io/linux-syscall-table/
 
-_read equ 0
-
 stdin equ 0
 stdout equ 1
 stderr equ 2
@@ -10,21 +8,17 @@ stderr equ 2
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _read
+    mov rax, 0
     syscall
 %endmacro
-
-_write equ 1
 
 %macro sys_write 3
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _write
+    mov rax, 1
     syscall
 %endmacro
-
-_open equ 2
 
 O_RDONLY equ 0
 O_WRONLY equ 1
@@ -34,19 +28,27 @@ O_RDWR equ 2
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _open
+    mov rax, 2
     syscall
 %endmacro
-
-_close equ 3
 
 %macro sys_close 1
     mov rdi, %1
-    mov rax, _close
+    mov rax, 3
     syscall
 %endmacro
 
-_socket equ 41
+SIGCHLD equ 17
+SIG_IGN equ 1
+
+%macro sys_rt_sigaction 4
+    mov r10, %4
+    mov rdx, %3
+    mov rsi, %2
+    mov rdi, %1
+    mov rax, 13
+    syscall
+%endmacro
 
 AF_INET equ 2
 SOCK_STREAM equ 1
@@ -56,31 +58,25 @@ IPPROTO_TCP equ 6
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _socket
+    mov rax, 41
     syscall
 %endmacro
-
-_connect equ 42
 
 %macro sys_connect 3
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _connect
+    mov rax, 42
     syscall
 %endmacro
-
-_accept equ 43
 
 %macro sys_accept 3
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _accept
+    mov rax, 43
     syscall
 %endmacro
-
-_bind equ 49
 
 INADDR_ANY equ 0
 
@@ -88,26 +84,27 @@ INADDR_ANY equ 0
     mov rdx, %3
     mov rsi, %2
     mov rdi, %1
-    mov rax, _bind
+    mov rax, 49
     syscall
 %endmacro
-
-_listen equ 50
 
 %macro sys_listen 2
     mov rsi, %2
     mov rdi, %1
-    mov rax, _listen
+    mov rax, 50
     syscall
 %endmacro
 
-_exit equ 60
+%macro sys_fork 0
+    mov rax, 57
+    syscall
+%endmacro
 
 EXIT_SUCCESS equ 0
 EXIT_FAILURE equ 1
 
 %macro sys_exit 1
     mov rdi, %1
-    mov rax, _exit
+    mov rax, 60
     syscall
 %endmacro
