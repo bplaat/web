@@ -1,5 +1,7 @@
 ; https://filippo.io/linux-syscall-table/
 
+NULL equ 0
+
 stdin equ 0
 stdout equ 1
 stderr equ 2
@@ -47,6 +49,15 @@ SIG_IGN equ 1
     mov rsi, %2
     mov rdi, %1
     mov rax, 13
+    syscall
+%endmacro
+
+%macro sys_sendfile 4
+    mov r10, %4
+    mov rdx, %3
+    mov rsi, %2
+    mov rdi, %1
+    mov rax, 40
     syscall
 %endmacro
 

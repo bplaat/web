@@ -8,7 +8,7 @@ section .data
     server_address dw AF_INET
         dw 0x901f ; 8080
         dd INADDR_ANY ; 0.0.0.0
-        dq 0
+        times 8 db 0
     server_address_length equ $ - server_address
 
     client_socket dq 0
@@ -27,14 +27,16 @@ section .data
     sigaction:
         sa_handler  dq SIG_IGN
         sa_flags    dq 0x04000000
-        sa_restorer dq 0
+        sa_restorer dq NULL
         sa_mask     dq 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+    sendfile_length equ 1024
 
 section .text
 global _start
 
 _start:
-    sys_rt_sigaction SIGCHLD, sigaction, 0, 8
+    sys_rt_sigaction SIGCHLD, sigaction, NULL, 8
 
     sys_socket AF_INET, SOCK_STREAM, IPPROTO_TCP
     cmp rax, 0
@@ -69,6 +71,7 @@ exit_error:
     sys_exit EXIT_FAILURE
 
 handle_client:
+
 read_request:
     sys_read [client_socket], buffer, buffer_length
     cmp rax, buffer_length
@@ -78,14 +81,10 @@ read_request:
 
     sys_open filename, O_RDONLY, 0
     mov [file], rax
-read_file_write_client_socket_loop:
-    sys_read [file], buffer, buffer_length
-    cmp rax, 0
-    je .done
-
-    sys_write [client_socket], buffer, rax
-    jmp read_file_write_client_socket_loop
-.done:
+sendfile:
+    sys_sendfile [client_socket], [file], NULL, sendfile_length
+    cmp rax, sendfile_length
+    je sendfile
     sys_close [file]
 
     sys_close [client_socket]
